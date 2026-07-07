@@ -1960,6 +1960,10 @@ function enterApp() {
       }
     }, () => {}); // silent error on permission issues
   }
+
+  // Real-time listeners for admin config (pricing, bonus slots, MTN number)
+  // So when admin changes these, students see updates immediately
+  startConfigListeners();
 }
 
 function renderAccountPill() {
@@ -2074,6 +2078,41 @@ document.addEventListener('visibilitychange', () => {
     blurTimeout = setTimeout(() => overlay.classList.remove('show'), 150);
   }
 });
+
+// ═══════════════════════════════════════════════════════
+// REAL-TIME CONFIG LISTENERS
+// ═══════════════════════════════════════════════════════
+let configUnsubscribeMeta = null;
+let configUnsubscribePricing = null;
+let cachedPricing = null;
+let cachedAdminConfig = null;
+
+function startConfigListeners() {
+  if (!fbReady()) return;
+  // Listen to config/meta (bonus slots, MTN number, loginCount)
+  configUnsubscribeMeta = FB.onSnapshot(FB.doc(FB.db, 'config', 'meta'), (snap) => {
+    if (snap.exists()) {
+      cachedAdminConfig = snap.data();
+      // Update bonus banner in real-time
+      if (currentUser && document.getElementById('bonusBanner')) {
+        const count = cachedAdminConfig.loginCount || 0;
+        const slots = cachedAdminConfig.bonusSlots || 0;
+        document.getElementById('bonusBanner').classList.toggle('show', count < slots);
+      }
+    }
+  }, () => {});
+  // Listen to config/pricing (course prices)
+  configUnsubscribePricing = FB.onSnapshot(FB.doc(FB.db, 'config', 'pricing'), (snap) => {
+    if (snap.exists()) {
+      cachedPricing = snap.data();
+    }
+  }, () => {});
+}
+
+function stopConfigListeners() {
+  if (configUnsubscribeMeta) { configUnsubscribeMeta(); configUnsubscribeMeta = null; }
+  if (configUnsubscribePricing) { configUnsubscribePricing(); configUnsubscribePricing = null; }
+}
 
 // ═══════════════════════════════════════════════════════
 // PAYMENT MODAL
@@ -2342,6 +2381,7 @@ function escapeHtml(str) {
 // ── CONFIG (MTN number + bonus slots) ──────────────────────────
 async function getAdminConfig() {
   if (fbReady()) {
+    if (cachedAdminConfig) return cachedAdminConfig;
     const snap = await FB.getDoc(FB.doc(FB.db, 'config', 'meta'));
     return snap.exists() ? snap.data() : { mtnNumber: '', bonusSlots: 5, loginCount: 0 };
   } else {
@@ -2361,6 +2401,7 @@ async function saveAdminSettings() {
     const snap = await FB.getDoc(ref);
     if (snap.exists()) await FB.updateDoc(ref, { mtnNumber, bonusSlots });
     else await FB.setDoc(ref, { mtnNumber, bonusSlots, loginCount: 0 });
+    cachedAdminConfig = { mtnNumber, bonusSlots, loginCount: (snap.exists() ? (snap.data().loginCount || 0) : 0) };
   } else {
     const db = localDbRead();
     db.meta.mtnNumber = mtnNumber;
@@ -2376,6 +2417,7 @@ async function saveAdminSettings() {
 const DEFAULT_PRICING = { basics: 3000, electronics: 4000, coding: 4000, sensors: 4000, car: 5000 };
 async function getPricing() {
   if (fbReady()) {
+    if (cachedPricing) return cachedPricing;
     const snap = await FB.getDoc(FB.doc(FB.db, 'config', 'pricing'));
     return snap.exists() ? snap.data() : DEFAULT_PRICING;
   } else {
@@ -2401,6 +2443,7 @@ async function savePricing() {
   };
   if (fbReady()) {
     await FB.setDoc(FB.doc(FB.db, 'config', 'pricing'), p);
+    cachedPricing = p;
   } else {
     const db = localDbRead();
     db.pricing = p;
