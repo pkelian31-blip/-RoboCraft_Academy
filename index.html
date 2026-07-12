@@ -576,12 +576,12 @@ input, textarea{-webkit-user-select:text;-moz-user-select:text;user-select:text}
       <label style="font-size:.8rem;font-weight:800;color:#555;text-transform:uppercase;display:block;margin-bottom:6px">Payment Method</label>
       <div style="display:flex;gap:8px">
         <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px;border:2px solid #f57f17;border-radius:10px;cursor:pointer;background:#fff8e1;transition:all .2s" id="payMethodMtn">
-          <input type="radio" name="payMethod" value="mtn" checked onchange="document.getElementById('payMethodMtn').style.borderColor='#f57f17';document.getElementById('payMethodMtn').style.background='#fff8e1';document.getElementById('payMethodOrange').style.borderColor='#ddd';document.getElementById('payMethodOrange').style.background='white'">
-          <span style="font-weight:800;color:#f57f17">MTN</span>
+          <input type="radio" name="payMethod" value="mtn" checked>
+          <span style="font-weight:800;color:#f57f17">MTN Mobile Money</span>
         </label>
         <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px;border:2px solid #ddd;border-radius:10px;cursor:pointer;background:white;transition:all .2s" id="payMethodOrange">
-          <input type="radio" name="payMethod" value="orange" onchange="document.getElementById('payMethodOrange').style.borderColor='#e65100';document.getElementById('payMethodOrange').style.background='#fff3e0';document.getElementById('payMethodMtn').style.borderColor='#ddd';document.getElementById('payMethodMtn').style.background='white'">
-          <span style="font-weight:800;color:#e65100">Orange</span>
+          <input type="radio" name="payMethod" value="orange">
+          <span style="font-weight:800;color:#e65100">Orange Money</span>
         </label>
       </div>
     </div>
@@ -2433,7 +2433,7 @@ function getAdminPassword() {
 function changeAdminPassword() {
   const current = document.getElementById('currentAdminPass').value.trim();
   const newPass = document.getElementById('newAdminPass').value.trim();
-  const confirm = document.getElementById('confirmAdminPass').value.trim();
+  const confirmPass = document.getElementById('confirmAdminPass').value.trim();
   const errEl = document.getElementById('passErrorMsg');
   const okEl = document.getElementById('passSavedMsg');
   errEl.style.display = 'none';
@@ -2454,7 +2454,7 @@ function changeAdminPassword() {
     errEl.style.display = 'inline';
     return;
   }
-  if (newPass !== confirm) {
+  if (newPass !== confirmPass) {
     errEl.textContent = 'New passwords do not match.';
     errEl.style.display = 'inline';
     return;
@@ -2490,6 +2490,14 @@ function checkAdminPin() {
 document.addEventListener('DOMContentLoaded', () => {
   const pinInput = document.getElementById('adminPinInput');
   if (pinInput) pinInput.addEventListener('keyup', e => { if (e.key === 'Enter') checkAdminPin(); });
+  document.querySelectorAll('input[name="payMethod"]').forEach(r => {
+    r.addEventListener('change', () => {
+      const mtn = document.getElementById('payMethodMtn');
+      const org = document.getElementById('payMethodOrange');
+      if (r.value === 'mtn') { mtn.style.borderColor='#f57f17'; mtn.style.background='#fff8e1'; org.style.borderColor='#ddd'; org.style.background='white'; }
+      else { org.style.borderColor='#e65100'; org.style.background='#fff3e0'; mtn.style.borderColor='#ddd'; mtn.style.background='white'; }
+    });
+  });
 });
 
 async function openAdminDash() {
