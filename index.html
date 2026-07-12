@@ -572,8 +572,21 @@ input, textarea{-webkit-user-select:text;-moz-user-select:text;user-select:text}
         <div class="payment-mtn-number" id="paymentOrangeNumber" style="font-size:1rem">—</div>
       </div>
     </div>
-    <label style="font-size:.8rem;font-weight:800;color:#999;text-transform:uppercase" data-i18n="payment_ref_label">MTN transaction reference</label>
-    <input class="payment-input" id="paymentRefInput" data-i18n-placeholder="payment_ref_placeholder" placeholder="e.g. MP240613.1234.A56789">
+    <div style="margin-bottom:10px">
+      <label style="font-size:.8rem;font-weight:800;color:#555;text-transform:uppercase;display:block;margin-bottom:6px">Payment Method</label>
+      <div style="display:flex;gap:8px">
+        <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px;border:2px solid #f57f17;border-radius:10px;cursor:pointer;background:#fff8e1;transition:all .2s" id="payMethodMtn">
+          <input type="radio" name="payMethod" value="mtn" checked onchange="document.getElementById('payMethodMtn').style.borderColor='#f57f17';document.getElementById('payMethodMtn').style.background='#fff8e1';document.getElementById('payMethodOrange').style.borderColor='#ddd';document.getElementById('payMethodOrange').style.background='white'">
+          <span style="font-weight:800;color:#f57f17">MTN</span>
+        </label>
+        <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px;border:2px solid #ddd;border-radius:10px;cursor:pointer;background:white;transition:all .2s" id="payMethodOrange">
+          <input type="radio" name="payMethod" value="orange" onchange="document.getElementById('payMethodOrange').style.borderColor='#e65100';document.getElementById('payMethodOrange').style.background='#fff3e0';document.getElementById('payMethodMtn').style.borderColor='#ddd';document.getElementById('payMethodMtn').style.background='white'">
+          <span style="font-weight:800;color:#e65100">Orange</span>
+        </label>
+      </div>
+    </div>
+    <label style="font-size:.8rem;font-weight:800;color:#999;text-transform:uppercase">Transaction reference</label>
+    <input class="payment-input" id="paymentRefInput" placeholder="e.g. MP240613.1234.A56789">
     <div id="paymentError" class="auth-error"></div>
     <div id="paymentSuccess" class="auth-success" data-i18n="payment_submitted"></div>
     <div class="payment-btns">
@@ -1004,6 +1017,19 @@ input, textarea{-webkit-user-select:text;-moz-user-select:text;user-select:text}
       </div>
       <button class="admin-save-btn" onclick="saveAdminSettings()">💾 Save Settings</button>
       <span id="settingsSavedMsg" style="display:none;color:#2e7d32;font-weight:700;font-size:.82rem;margin-left:12px">✓ Saved!</span>
+    </div>
+
+    <!-- ADMIN PASSWORD -->
+    <div class="admin-section">
+      <h3>🔐 Change Admin Password</h3>
+      <div class="admin-grid">
+        <div class="admin-field"><label>Current Password</label><input type="password" id="currentAdminPass" placeholder="Enter current password"></div>
+        <div class="admin-field"><label>New Password</label><input type="password" id="newAdminPass" placeholder="Enter new password"></div>
+        <div class="admin-field"><label>Confirm New Password</label><input type="password" id="confirmAdminPass" placeholder="Confirm new password"></div>
+      </div>
+      <button class="admin-save-btn" onclick="changeAdminPassword()">🔑 Change Password</button>
+      <span id="passSavedMsg" style="display:none;color:#2e7d32;font-weight:700;font-size:.82rem;margin-left:12px">✓ Password changed!</span>
+      <span id="passErrorMsg" style="display:none;color:#c62828;font-weight:700;font-size:.82rem;margin-left:12px"></span>
     </div>
 
     <!-- PRICING -->
@@ -2182,6 +2208,12 @@ async function openPaymentModal(ch) {
   document.getElementById('paymentError').classList.remove('show');
   document.getElementById('paymentSuccess').classList.remove('show');
   document.getElementById('paymentSubmitBtn').style.display = 'inline-block';
+  // Reset payment method to MTN
+  document.querySelector('input[name="payMethod"][value="mtn"]').checked = true;
+  document.getElementById('payMethodMtn').style.borderColor = '#f57f17';
+  document.getElementById('payMethodMtn').style.background = '#fff8e1';
+  document.getElementById('payMethodOrange').style.borderColor = '#ddd';
+  document.getElementById('payMethodOrange').style.background = 'white';
   document.getElementById('paymentOverlay').classList.add('show');
 }
 function closePaymentModal() {
@@ -2197,6 +2229,7 @@ async function submitPayment() {
     errEl.classList.add('show');
     return;
   }
+  const payMethod = document.querySelector('input[name="payMethod"]:checked').value;
   const pricing = await getPricing();
   const ch = paymentTargetChapter;
   const record = {
@@ -2206,6 +2239,7 @@ async function submitPayment() {
     chapter: ch,
     amount: pricing[ch] || 0,
     mtnRef: ref,
+    payMethod: payMethod,
     status: 'pending',
     submittedAt: new Date().toISOString()
   };
@@ -2387,7 +2421,51 @@ function downloadCertificate() {
 // ═══════════════════════════════════════════════════
 // ADMIN PANEL — pricing, payments, users, notifications
 // ═══════════════════════════════════════════════════
-const ADMIN_PASSWORD = "ADMIN-US1H-EBXU-XGI7"; // ⚠️ change this for production use
+const ADMIN_PASSWORD_DEFAULT = "ADMIN-US1H-EBXU-XGI7";
+
+function getAdminPassword() {
+  const stored = localStorage.getItem('rca_admin_password');
+  if (stored) return stored;
+  localStorage.setItem('rca_admin_password', ADMIN_PASSWORD_DEFAULT);
+  return ADMIN_PASSWORD_DEFAULT;
+}
+
+function changeAdminPassword() {
+  const current = document.getElementById('currentAdminPass').value.trim();
+  const newPass = document.getElementById('newAdminPass').value.trim();
+  const confirm = document.getElementById('confirmAdminPass').value.trim();
+  const errEl = document.getElementById('passErrorMsg');
+  const okEl = document.getElementById('passSavedMsg');
+  errEl.style.display = 'none';
+  okEl.style.display = 'none';
+
+  if (!current || !newPass || !confirm) {
+    errEl.textContent = 'Please fill all fields.';
+    errEl.style.display = 'inline';
+    return;
+  }
+  if (current !== getAdminPassword()) {
+    errEl.textContent = 'Current password is incorrect.';
+    errEl.style.display = 'inline';
+    return;
+  }
+  if (newPass.length < 6) {
+    errEl.textContent = 'New password must be at least 6 characters.';
+    errEl.style.display = 'inline';
+    return;
+  }
+  if (newPass !== confirm) {
+    errEl.textContent = 'New passwords do not match.';
+    errEl.style.display = 'inline';
+    return;
+  }
+  localStorage.setItem('rca_admin_password', newPass);
+  document.getElementById('currentAdminPass').value = '';
+  document.getElementById('newAdminPass').value = '';
+  document.getElementById('confirmAdminPass').value = '';
+  okEl.style.display = 'inline';
+  setTimeout(() => okEl.style.display = 'none', 3000);
+}
 const CHAPTER_LABELS = { basics:'⚙️ Basics', electronics:'🔌 Electronics', coding:'💻 Coding', sensors:'📡 Sensors', car:'🚗 Final Build', practical:'📝 Practical Exercises' };
 const CHAPTER_ORDER = ['basics','electronics','coding','sensors','car','practical'];
 
@@ -2402,7 +2480,7 @@ function closeAdminPin() {
 }
 function checkAdminPin() {
   const input = document.getElementById('adminPinInput').value.trim();
-  if (input === ADMIN_PASSWORD) {
+  if (input === getAdminPassword()) {
     closeAdminPin();
     openAdminDash();
   } else {
@@ -2539,6 +2617,7 @@ async function renderPendingPayments() {
       <td>${escapeHtml(p.userFirstName)} ${escapeHtml(p.userSurname || '')}</td>
       <td>${CHAPTER_LABELS[p.chapter] || p.chapter}</td>
       <td>${(p.amount||0).toLocaleString()} XAF</td>
+      <td><span style="font-size:.7rem;padding:2px 6px;border-radius:6px;font-weight:700;${(p.payMethod||'mtn')==='orange'?'background:#fff3e0;color:#e65100':'background:#fff8e1;color:#f57f17'}">${(p.payMethod||'mtn').toUpperCase()}</span></td>
       <td><code>${escapeHtml(p.mtnRef)}</code></td>
       <td>${new Date(p.submittedAt).toLocaleString()}</td>
       <td>
