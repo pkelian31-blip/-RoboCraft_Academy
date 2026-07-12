@@ -555,14 +555,23 @@ input, textarea{-webkit-user-select:text;-moz-user-select:text;user-select:text}
     <div id="paymentCourseName" style="text-align:center;color:#888;font-size:.9rem"></div>
     <div class="payment-amount" id="paymentAmount">—</div>
     <div class="payment-steps">
-      <div style="font-weight:800;color:var(--py3);margin-bottom:6px" data-i18n="payment_steps_title">How to pay with MTN Mobile Money:</div>
+      <div style="font-weight:800;color:var(--py3);margin-bottom:6px" data-i18n="payment_steps_title">How to pay with Mobile Money:</div>
       <ol style="padding-left:18px;margin:0">
-        <li data-i18n="payment_step1">Send the amount below to the MTN number shown using MTN Mobile Money.</li>
-        <li data-i18n="payment_step2">Copy the transaction reference / ID from the SMS confirmation MTN sends you.</li>
+        <li data-i18n="payment_step1">Send the amount below to the number shown using MTN or Orange Mobile Money.</li>
+        <li data-i18n="payment_step2">Copy the transaction reference / ID from the SMS confirmation you receive.</li>
         <li data-i18n="payment_step3">Paste it below and submit — your course unlocks as soon as it's approved.</li>
       </ol>
     </div>
-    <div class="payment-mtn-number" id="paymentMtnNumber">—</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+      <div style="flex:1;min-width:140px;background:#fff8e1;border-radius:10px;padding:10px;text-align:center">
+        <div style="font-size:.75rem;font-weight:800;color:#f57f17;margin-bottom:4px">MTN Mobile Money</div>
+        <div class="payment-mtn-number" id="paymentMtnNumber" style="font-size:1rem">—</div>
+      </div>
+      <div style="flex:1;min-width:140px;background:#fff3e0;border-radius:10px;padding:10px;text-align:center">
+        <div style="font-size:.75rem;font-weight:800;color:#e65100;margin-bottom:4px">Orange Money</div>
+        <div class="payment-mtn-number" id="paymentOrangeNumber" style="font-size:1rem">—</div>
+      </div>
+    </div>
     <label style="font-size:.8rem;font-weight:800;color:#999;text-transform:uppercase" data-i18n="payment_ref_label">MTN transaction reference</label>
     <input class="payment-input" id="paymentRefInput" data-i18n-placeholder="payment_ref_placeholder" placeholder="e.g. MP240613.1234.A56789">
     <div id="paymentError" class="auth-error"></div>
@@ -990,6 +999,7 @@ input, textarea{-webkit-user-select:text;-moz-user-select:text;user-select:text}
       <h3>📱 MTN Mobile Money Settings</h3>
       <div class="admin-grid">
         <div class="admin-field"><label>MTN Number to display to students</label><input type="text" id="mtnNumberInput" placeholder="e.g. 6XX XXX XXX"></div>
+        <div class="admin-field"><label>Orange Money Number to display to students</label><input type="text" id="orangeNumberInput" placeholder="e.g. 6XX XXX XXX"></div>
         <div class="admin-field"><label>Bonus login slots (first N signups get Basics free)</label><input type="number" id="bonusSlotsInput" min="0"></div>
       </div>
       <button class="admin-save-btn" onclick="saveAdminSettings()">💾 Save Settings</button>
@@ -2166,7 +2176,8 @@ async function openPaymentModal(ch) {
   const cfg = await getAdminConfig();
   document.getElementById('paymentCourseName').textContent = CHAPTER_LABELS[ch] || ch;
   document.getElementById('paymentAmount').textContent = (pricing[ch] || 0).toLocaleString() + ' XAF';
-  document.getElementById('paymentMtnNumber').textContent = cfg.mtnNumber || '(not set yet — contact your teacher)';
+  document.getElementById('paymentMtnNumber').textContent = cfg.mtnNumber || '(not set yet)';
+  document.getElementById('paymentOrangeNumber').textContent = cfg.orangeNumber || '(not set yet)';
   document.getElementById('paymentRefInput').value = '';
   document.getElementById('paymentError').classList.remove('show');
   document.getElementById('paymentSuccess').classList.remove('show');
@@ -2425,7 +2436,7 @@ async function getAdminConfig() {
   if (fbReady()) {
     if (cachedAdminConfig) return cachedAdminConfig;
     const snap = await FB.getDoc(FB.doc(FB.db, 'config', 'meta'));
-    return snap.exists() ? snap.data() : { mtnNumber: '', bonusSlots: 5, loginCount: 0 };
+    return snap.exists() ? snap.data() : { mtnNumber: '', orangeNumber: '', bonusSlots: 5, loginCount: 0 };
   } else {
     return localDbRead().meta;
   }
@@ -2433,20 +2444,23 @@ async function getAdminConfig() {
 async function loadAdminSettingsUI() {
   const cfg = await getAdminConfig();
   document.getElementById('mtnNumberInput').value = cfg.mtnNumber || '';
+  document.getElementById('orangeNumberInput').value = cfg.orangeNumber || '';
   document.getElementById('bonusSlotsInput').value = cfg.bonusSlots ?? 5;
 }
 async function saveAdminSettings() {
   const mtnNumber = document.getElementById('mtnNumberInput').value.trim();
+  const orangeNumber = document.getElementById('orangeNumberInput').value.trim();
   const bonusSlots = Number(document.getElementById('bonusSlotsInput').value) || 0;
   if (fbReady()) {
     const ref = FB.doc(FB.db, 'config', 'meta');
     const snap = await FB.getDoc(ref);
-    if (snap.exists()) await FB.updateDoc(ref, { mtnNumber, bonusSlots });
-    else await FB.setDoc(ref, { mtnNumber, bonusSlots, loginCount: 0 });
-    cachedAdminConfig = { mtnNumber, bonusSlots, loginCount: (snap.exists() ? (snap.data().loginCount || 0) : 0) };
+    if (snap.exists()) await FB.updateDoc(ref, { mtnNumber, orangeNumber, bonusSlots });
+    else await FB.setDoc(ref, { mtnNumber, orangeNumber, bonusSlots, loginCount: 0 });
+    cachedAdminConfig = { mtnNumber, orangeNumber, bonusSlots, loginCount: (snap.exists() ? (snap.data().loginCount || 0) : 0) };
   } else {
     const db = localDbRead();
     db.meta.mtnNumber = mtnNumber;
+    db.meta.orangeNumber = orangeNumber;
     db.meta.bonusSlots = bonusSlots;
     localDbWrite(db);
   }
